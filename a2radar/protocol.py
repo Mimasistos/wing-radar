@@ -166,8 +166,12 @@ class Decoder:
         s, c = self.s, self.cfg
         if s.char_name:
             self._name_bind(p)
+        if s.calibrating:
+            s.count_op(op)
         if op in self.fixed:
             eid, _ = uvarint(p)
+            if s.calibrating and eid > 100 and (v := f3(p, self.fixed[op])):
+                s.sample(eid, v[2])
             if self._mine(eid) and (v := f3(p, self.fixed[op])):
                 s.set_pos(*v)
         elif op in self.tail:
@@ -180,6 +184,8 @@ class Decoder:
                 s.set_pos(*v)
         elif op in self.rel:
             eid, n = uvarint(p)
+            if s.calibrating and eid > 100 and (v := f3(p, n + self.rel[op])):
+                s.sample(eid, v[2])
             if self._mine(eid) and (v := f3(p, n + self.rel[op])):
                 s.set_pos(*v)
         elif op == c["self_info"]["op"]:

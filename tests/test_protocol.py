@@ -141,6 +141,52 @@ class CalibrationTests(unittest.TestCase):
         self._feed_moves(d, 222, [0, 160, 0], q)
         self.assertIsNone(s.finish_calibration()[0])
 
+    def test_two_samples_are_enough(self):
+        s = State()
+        d = Decoder(s, 13328)
+        s.start_calibration(60)
+        self._feed_moves(d, 222, [0, 120], 1)                 # tek zıplama: sadece iki paket
+        eid, msg = s.finish_calibration()
+        self.assertEqual(eid, 222, msg)
+
+    def test_fixed_and_rel_opcodes_are_sampled_too(self):
+        s = State()
+        d = Decoder(s, 13328)
+        s.start_calibration(60)
+        seq = 1
+        for z in (0, 90, 0):
+            body = varint(333)
+            fr = frame(13893, body + bytes(25 - len(body)) + f3(0, 0, z))        # sabit ofsetli kendi-konum paketi
+            d.feed("1.1.1.1", 13328, "2.2.2.2", 5, seq, fr)
+            seq += len(fr)
+        self.assertEqual(s.finish_calibration()[0], 333)
+
+    def test_failure_message_has_diagnostics_and_log(self):
+        import os
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as app, mock.patch.dict(os.environ, {"APPDATA": app}):
+            s = State()
+            d = Decoder(s, 13328)
+            s.start_calibration(60)
+            self._feed_moves(d, 444, [0], 1)                   # tek örnek: yetersiz
+            eid, msg = s.finish_calibration()
+            self.assertIsNone(eid)
+            self.assertIn("varlık: 1", msg)
+            self.assertIn("calibration.log", msg)
+            log = (Path(app) / "A2Radar" / "calibration.log").read_text("utf-8")
+            self.assertIn("14378x1", log)                      # opcode sayacı
+            self.assertIn("varlık 444: 1 örnek", log)
+
+    def test_too_little_height_reports_numbers(self):
+        s = State()
+        d = Decoder(s, 13328)
+        s.start_calibration(60)
+        self._feed_moves(d, 555, [0, 10, 0], 1)
+        eid, msg = s.finish_calibration()
+        self.assertIsNone(eid)
+        self.assertIn("10 cm", msg)
+
     def test_no_autobind(self):
         s = State()
         d = Decoder(s, 13328)

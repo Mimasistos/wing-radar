@@ -111,11 +111,13 @@ class Overlay:
 
         if self.s.calibrating:
             c.create_rectangle(0, 24 * k, W * k, 46 * k, fill="#f59e0b", outline="")
-            c.create_text(W / 2 * k, 35 * k, fill="#000", font=("Segoe UI", int(11 * k), "bold"),
-                          text=f"ZIPLA!  {self.s.calib_until - time.time():.0f} sn")
+            c.create_text(W / 2 * k, 35 * k, fill="#000", font=("Segoe UI", int(10 * k), "bold"),
+                          text=f"ZIPLA / DASH / KANAT!  {self.s.calib_until - time.time():.0f} sn")
         elif time.time() < self.msg_until:
-            c.create_rectangle(0, 24 * k, W * k, 46 * k, fill="#16a34a" if self.msg_ok else "#b91c1c", outline="")
-            c.create_text(W / 2 * k, 35 * k, fill="#fff", font=("Segoe UI", int(8 * k), "bold"), text=self.msg[:60], width=(W - 8) * k)
+            h = 22 if self.msg_ok else 64                  # hata mesajları uzun: bant yüksek, metin sarılı
+            c.create_rectangle(0, 24 * k, W * k, (24 + h) * k, fill="#16a34a" if self.msg_ok else "#b91c1c", outline="")
+            c.create_text(W / 2 * k, (24 + h / 2) * k, fill="#fff", font=("Segoe UI", int(8 * k), "bold"),
+                          text=self.msg, width=(W - 12) * k)
 
         cx, cy, r = W / 2 * k, 110 * k, 62 * k
         hit = nearest(snap, self.cfg["range_m"])
@@ -196,7 +198,7 @@ class Overlay:
 
     def _calib_done(self):
         eid, msg = self.s.finish_calibration()
-        self.msg, self.msg_until, self.msg_ok = msg, time.time() + 8, eid is not None
+        self.msg, self.msg_until, self.msg_ok = msg, time.time() + (8 if eid is not None else 14), eid is not None
 
     def _sweeper(self, cx, cy, r):
         c = self.c
@@ -253,7 +255,7 @@ class SettingsDialog(tk.Toplevel):
         e = ttk.Entry(f, textvariable=self.name)
         e.grid(row=r + 3, columnspan=2, sticky="we")
         e.bind("<KeyRelease>", lambda _: self._name())
-        ttk.Button(f, text="Karakterimi bul (4 sn boyunca zıpla)", command=self._calib).grid(row=r + 4, columnspan=2, sticky="we", pady=3)
+        ttk.Button(f, text="Karakterimi bul (6 sn zıpla/dash/kanat)", command=self._calib).grid(row=r + 4, columnspan=2, sticky="we", pady=3)
         self.route = tk.BooleanVar(value=cfg["route_on"])
         ttk.Checkbutton(f, text="Arama rotası (küp yokken sonraki durağa yönlendir)", variable=self.route,
                         command=lambda: cfg.update(route_on=self.route.get())).grid(row=r + 5, columnspan=2, sticky="w", pady=(6, 0))
@@ -279,7 +281,7 @@ class SettingsDialog(tk.Toplevel):
     def _calib(self):
         self.ov.s.player_id = None
         self.ov.s.locked = False
-        self.ov.s.start_calibration(4.0)
+        self.ov.s.start_calibration()
         self.ov.error = ""
         self.destroy()
 

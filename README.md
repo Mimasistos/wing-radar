@@ -68,6 +68,12 @@ Pencere her yerin dönüşümden sapmasını gösterir; tek büyük sapma yanlı
 4. **İlerleme:** oyuncu bir durağın R'sine girip küp paketi gelmezse oradaki noktalar elenir; duraklar düşer.
 Dönüşüm varsayılanı: dünya(cm) = 200·(piksel−2048) (2 m/piksel). Kalibrasyon yoksa tahmini çalışır, 3+ yer kaydedince iyileşir.
 
+## Sorun giderme: "Zıplama algılanmadı"
+"Karakterimi bul" 6 sn boyunca yakındaki varlıkların konum paketlerini dinler ve yüksekliği (z) en çok değişen varlığı karakter sayar.
+- Kalabalıktan uzak dur; 6 sn boyunca sürekli zıpla, dash yap veya kanat aç (tek zıplama yetmeyebilir).
+- Hata mesajı sayıları gösterir (varlık sayısı, örnek sayısı, gelen paket, yükseklik cm). Gelen paket 0 ise radar oyunun trafiğini göremiyor demektir (Npcap kurulu mu, yönetici olarak mı açıldı, oyun bağlı mı?).
+- Tanı bilgisi `%APPDATA%\A2Radar\calibration.log` dosyasına yazılır (varlıklar, örnekler, en sık opcode'lar). Sorun sürerse bu dosyayı paylaş.
+
 ## Sınırlar
 Offset ve opcode değerleri v1'den alındı, canlı oyunda doğrulanmadı. Oyun güncellenirse bozulabilir.
 Konum sadece zıplama/dash/skill gibi eylemlerde güncellenir (v1 notu).

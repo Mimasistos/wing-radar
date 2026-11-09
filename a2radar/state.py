@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import math
+import os
 import threading
 import time
+from collections import Counter
 from dataclasses import dataclass, field
+from pathlib import Path
 
 MAX_XY, MAX_Z = 500_000.0, 120_000.0   # santimetre
 HEADING_MIN_MOVE = 100.0               # 1 m'den kısa hareketten yön çıkarma
@@ -55,6 +58,8 @@ class State:
         self.connected = False
         self.on_new_cube = None  # callback(Cube)
         self.calib_until = 0.0
+        self.calib_ops: Counter = Counter()
+        self.calib_pkts0 = 0
         self.samples: dict[int, list[float]] = {}
         self.heading_time = 0.0
 
@@ -89,10 +94,17 @@ class State:
             self.pos, self.pos_time = (x, y, z), time.time()
 
     # --- kimlik kalibrasyonu: kullanıcı zıplarken z'si en çok değişen varlık = karakter ---
-    def start_calibration(self, secs=4.0):
+    CALIB_SECONDS = 6.0
+    MIN_SAMPLES = 2          # bir varlıktan en az bu kadar konum örneği
+    MIN_Z_RANGE = 40.0       # cm: zıplama sayılacak en küçük yükseklik değişimi
+    AMBIGUOUS = 0.6          # ikinci aday en iyinin bu oranını geçerse belirsiz
+
+    def start_calibration(self, secs=None):
         with self._l:
             self.samples = {}
-            self.calib_until = time.time() + secs
+            self.calib_ops = Counter()
+            self.calib_pkts0 = self.packets
+            self.calib_until = time.time() + (secs or self.CALIB_SECONDS)
 
     @property
     def calibrating(self):
@@ -103,22 +115,58 @@ class State:
             if time.time() < self.calib_until and valid_coord(0, 0, z):
                 self.samples.setdefault(eid, []).append(z)
 
+    def count_op(self, op: int):
+        """Kalibrasyon sırasında gelen her opcode'u sayar (tanı için)."""
+        with self._l:
+            if time.time() < self.calib_until:
+                self.calib_ops[op] += 1
+
     def finish_calibration(self):
-        """(eid|None, mesaj)"""
+        """(eid|None, mesaj). Tanı bilgisi %APPDATA%/A2Radar/calibration.log dosyasına yazılır."""
         with self._l:
             self.calib_until = 0.0
-            seen = len(self.samples)
-            rng = sorted(((max(v) - min(v), e) for e, v in self.samples.items() if len(v) >= 3), reverse=True)
-            self.samples = {}
-        if not rng or rng[0][0] < 60:
-            best = f", en büyük z değişimi {rng[0][0]:.0f} cm" if rng else ""
-            return None, f"Zıplama algılanmadı ({seen} varlık görüldü{best}). Tekrar dene."
-        if len(rng) > 1 and rng[1][0] > rng[0][0] * 0.6:
-            return None, f"{len(rng)} oyuncu hareket etti. Tekrar dene."
-        self.set_player_id(rng[0][1], lock=True)
-        with self._l:
-            self.pos = self._anchor = self.heading = None
-        return rng[0][1], f"Karakter bulundu (ID {rng[0][1]})"
+            samples, ops = self.samples, self.calib_ops
+            pkts = self.packets - self.calib_pkts0
+            self.samples, self.calib_ops = {}, Counter()
+        stats = sorted(((max(v) - min(v), len(v), e) for e, v in samples.items() if len(v) >= self.MIN_SAMPLES), reverse=True)
+        most = max((len(v) for v in samples.values()), default=0)
+        ids, eid, msg = None, None, ""
+        if not stats:
+            msg = (f"Zıplama algılanmadı (varlık: {len(samples)}, en çok örnek: {most}, gelen paket: {pkts}). "
+                   "Kalibrasyon sırasında sürekli zıpla, dash yap veya kanat aç.")
+        elif stats[0][0] < self.MIN_Z_RANGE:
+            msg = (f"Yükseklik değişimi yetersiz ({stats[0][0]:.0f} cm < {self.MIN_Z_RANGE:.0f} cm, {stats[0][1]} örnek). "
+                   "Daha yüksek/sık zıpla veya kanat aç.")
+        elif len(stats) > 1 and stats[1][0] >= self.MIN_Z_RANGE and stats[1][0] > stats[0][0] * self.AMBIGUOUS:
+            msg = f"{sum(1 for s in stats if s[0] >= self.MIN_Z_RANGE)} oyuncu zıpladı, belirsiz. Kalabalıktan uzaklaşıp tekrar dene."
+        else:
+            eid = stats[0][2]
+            msg = f"Karakter bulundu (ID {eid}, {stats[0][1]} örnek, {stats[0][0]:.0f} cm)"
+        self._write_calib_log(eid, msg, samples, ops, pkts)
+        if eid is not None:
+            self.set_player_id(eid, lock=True)
+            with self._l:
+                self.pos = self._anchor = self.heading = None
+        elif self.calib_log_hint:
+            msg += f" Ayrıntı: {self.calib_log_hint}"
+        return eid, msg
+
+    calib_log_hint = ""
+
+    def _write_calib_log(self, eid, msg, samples, ops, pkts):
+        try:
+            p = Path(os.environ.get("APPDATA", Path.home())) / "A2Radar" / "calibration.log"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            lines = [f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}",
+                     f"  gelen paket={pkts}, bağlı={self.connected}, varlık={len(samples)}"]
+            for e, v in sorted(samples.items(), key=lambda kv: -len(kv[1]))[:10]:
+                lines.append(f"  varlık {e}: {len(v)} örnek, z aralığı {max(v) - min(v):.0f} cm")
+            lines.append("  en sık opcode: " + ", ".join(f"{o}x{n}" for o, n in ops.most_common(12)))
+            with p.open("a", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n\n")
+            self.calib_log_hint = r"%APPDATA%\A2Radar\calibration.log"
+        except OSError:
+            self.calib_log_hint = ""
 
     def reset_zone(self):
         with self._l:
