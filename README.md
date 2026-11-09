@@ -17,7 +17,7 @@ a2radar                  # veya: python -m a2radar   (Baslat.bat yönetici olara
 Paket yakalama için yönetici yetkisi gerekebilir. Testler: `python -m unittest discover -s tests`
 Lisans: MIT, © 2026 mimasdev.
 
-## Tek komutla kurulum (başka bir Windows bilgisayar)
+## Tek komutla kurulum 
 PowerShell'de şunu yapıştır (Python 3.10+ ve Npcap yoksa kurar, radarı ayrı bir sanal ortama yükler, masaüstüne yönetici olarak çalışan kısayol koyar):
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Mimasistos/wing-radar/main/install.ps1 | iex"
