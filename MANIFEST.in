@@ -1,0 +1,5 @@
+include LICENSE README.md requirements.txt requirements-tools.txt Baslat.bat Kurulum.bat
+recursive-include tools *.py *.js
+recursive-include tests *.py
+include a2radar/data/README.md
+prune a2radar/data/_old

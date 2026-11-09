@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+.venv/
+
+# Üçüncü taraf içerik (oyun görseli, site verisi): depoya konmaz, kullanıcı kendi üretir (a2radar/data/README.md)
+a2radar/data/*
+!a2radar/data/README.md
