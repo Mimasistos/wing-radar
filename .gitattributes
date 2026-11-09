@@ -1,0 +1,2 @@
+# Windows toplu iş dosyaları CRLF ile inmeli (ZIP indirmelerinde de)
+*.bat text eol=crlf

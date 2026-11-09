@@ -22,7 +22,7 @@ PowerShell'de şunu yapıştır (Python 3.10+ ve Npcap yoksa kurar, radarı ayr�
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Mimasistos/wing-radar/main/install.ps1 | iex"
 ```
-Depoyu indirdiysen `install.bat` dosyasına çift tıklaman yeterli. Betik şunları yapar:
+Depoyu indirdiysen (ZIP) `install.bat` dosyasına çift tıklaman yeterli; `Baslat.bat` de eksik Python paketlerini ilk açılışta kendisi kurar (Python ve Npcap yine gerekir). Betik şunları yapar:
 - **Python:** `py` başlatıcısıyla 3.12/3.13/3.11/3.10 arar; yoksa `winget` ile Python 3.12 kurar.
 - **Npcap:** Kuruluysa dokunmaz. Değilse resmî siteden (npcap.com) indirir, dijital imzasını doğrular ve Npcap'in kendi kurulum penceresini açar.
   Lisansı sen onaylarsın; "WinPcap API-compatible Mode" kutusu işaretli kalsın.
