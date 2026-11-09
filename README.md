@@ -49,13 +49,6 @@ Fare tekerleği yakınlaştırır; ⚙'dan kapatılabilir. Sonraki durak ekran d
 Durak, oyuncu yarıçap içine girip küp paketi gelmeyince elenir. Konum yalnızca zıplama/dash'te güncellenir; gezerken zıpla.
 Veri: `a2radar/data/altgard_cubes.json`, sitenin yakın çekim ekran görüntülerinden çıkarılmış ikon merkezleridir (`tools/extract_icons.py`, 9 yakın çekim + 1 tam harita; her biri harita görseline 0.90–0.97 skorla hizalandı). Doğruluk yaklaşık ±10–20 m. Hangilerinin aktif olduğu bilinmez, z yok. Sitenin ham `options.json` koordinatları sitenin çizdiği küp konumlarıyla örtüşmediği için kullanılmadı (`data/_old/`).
 
-## Harita görseli (isteğe bağlı arka plan)
-Görseli sen kaydedersin; radar bulursa hem rota haritasında hem yol haritası panelinde arka plan olarak kullanır.
-Dosya: `a2radar/data/altgard_map.png` (veya `%APPDATA%\A2Radar\altgard_map.png`; jpg/webp de olur). Kare kabul edilir ve 0..4096 işaretçi uzayına gerilir.
-Site haritayı z_x_y.webp parçalarıyla yüklüyor. İki yol: `tools/browser_stitch.js` (F12 Console'a yapıştır, tek PNG indirir) veya
-elindeki parçaları `python tools/stitch_tiles.py <klasör>` ile birleştir (`--zoom N`, harita ters çıkarsa `--flip-y`).
-Siteden aldığın görselin adresi tarayıcıda F12 → Network sekmesinde görünür. Paneldeki görsel kalibrasyonun dönmesine/ölçeğine göre otomatik hizalanır.
-
 ## Kalibrasyon yerleri
 Önerilen 6 yer: Gravekeeper Camp, Moslan Forest Dry Sade, Faded Stump, Basfelt Ruins Cliff, Outskirts Stall, Abandoned Campsite.
 Koordinatı kayıtlı değilse: Rota haritası → "Yer" seç → oyunda o yerin yanında zıpla → "Bulunduğum yeri kaydet" → haritada yerine tıkla.
