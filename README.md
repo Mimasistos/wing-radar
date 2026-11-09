@@ -17,6 +17,20 @@ a2radar                  # veya: python -m a2radar   (Baslat.bat yönetici olara
 Paket yakalama için yönetici yetkisi gerekebilir. Testler: `python -m unittest discover -s tests`
 Lisans: MIT, © 2026 mimasdev.
 
+## Tek komutla kurulum (başka bir Windows bilgisayar)
+PowerShell'de şunu yapıştır (Python 3.10+ ve Npcap yoksa kurar, radarı ayrı bir sanal ortama yükler, masaüstüne yönetici olarak çalışan kısayol koyar):
+```
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Mimasistos/wing-radar/main/install.ps1 | iex"
+```
+Depoyu indirdiysen `install.bat` dosyasına çift tıklaman yeterli. Betik şunları yapar:
+- **Python:** `py` başlatıcısıyla 3.12/3.13/3.11/3.10 arar; yoksa `winget` ile Python 3.12 kurar.
+- **Npcap:** Kuruluysa dokunmaz. Değilse resmî siteden (npcap.com) indirir, dijital imzasını doğrular ve Npcap'in kendi kurulum penceresini açar.
+  Lisansı sen onaylarsın; "WinPcap API-compatible Mode" kutusu işaretli kalsın.
+- **Radar:** `%LOCALAPPDATA%\A2Radar\venv` içine kurar; sistem Python'una dokunmaz. Aynı komutu tekrar çalıştırmak günceller.
+- Yönetici yetkisi (UAC) yalnızca Python/Npcap kurulacaksa istenir. Yalnızca durum görmek için: `install.ps1 -Check`. Kaldırmak için: `install.ps1 -Uninstall`.
+- Rota/yol haritası için veri dosyalarını (depoda yok, bkz. `a2radar/data/README.md`) ilk bilgisayardan `%APPDATA%\A2Radar\` klasörüne kopyala
+  ya da `install.ps1 -DataFrom <klasör>` kullan.
+
 ## v1'e göre değişenler
 - TCP akışı seq numarasına göre yeniden birleştirilir (v1 sırasız/tekrar paketlerde bozuluyordu).
 - BPF filtresi + oyun portu otomatik izlenir; oyun kapanıp açılınca sniffer yeniden kurulur.

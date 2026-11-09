@@ -36,8 +36,16 @@ def store_path() -> Path:
     return Path(os.environ.get("APPDATA", Path.home())) / "A2Radar" / "mapcal.json"
 
 
+def data_dirs():
+    """Veri dosyası aranan klasörler: paket içi data/ ve %APPDATA%/A2Radar (kurulu pakette veri buraya konur)."""
+    return [DATA, Path(os.environ.get("APPDATA", Path.home())) / "A2Radar"]
+
+
 def _load(name):
-    return json.loads((DATA / name).read_text("utf-8"))
+    for d in data_dirs():
+        if (d / name).is_file():
+            return json.loads((d / name).read_text("utf-8"))
+    raise FileNotFoundError(name)
 
 
 def fit(anchors):

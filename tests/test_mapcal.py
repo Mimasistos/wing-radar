@@ -90,6 +90,29 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(len(mapcal.SUGGESTED), 6)
 
 
+class DataLookupTests(unittest.TestCase):
+    def test_falls_back_to_appdata_folder(self):
+        import os
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as app, tempfile.TemporaryDirectory() as pkg:
+            (Path(app) / "A2Radar").mkdir()
+            (Path(app) / "A2Radar" / "x.json").write_text("[[1, 2]]", "utf-8")
+            with mock.patch.dict(os.environ, {"APPDATA": app}), mock.patch.object(mapcal, "DATA", Path(pkg)):
+                self.assertEqual(mapcal._load("x.json"), [[1, 2]])
+                with self.assertRaises(FileNotFoundError):
+                    mapcal._load("yok.json")
+
+    def test_package_dir_wins_over_appdata(self):
+        import os
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as app, tempfile.TemporaryDirectory() as pkg:
+            (Path(app) / "A2Radar").mkdir()
+            (Path(app) / "A2Radar" / "x.json").write_text("[1]", "utf-8")
+            (Path(pkg) / "x.json").write_text("[2]", "utf-8")
+            with mock.patch.dict(os.environ, {"APPDATA": app}), mock.patch.object(mapcal, "DATA", Path(pkg)):
+                self.assertEqual(mapcal._load("x.json"), [2])
+
+
 class PriorAndFilterTests(unittest.TestCase):
     def test_prior_makes_guide_ready_without_anchors(self):
         with tempfile.TemporaryDirectory() as d:
