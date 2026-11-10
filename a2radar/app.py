@@ -5,7 +5,8 @@ import time
 import tkinter as tk
 from tkinter import ttk
 
-from . import audio, mapcal, mapimg, minimap, settings
+from . import audio, entities, mapcal, mapimg, minimap, settings
+from .entwin import EntitiesWindow
 from .capture import Capture
 from .state import State, nearest
 
@@ -29,6 +30,7 @@ class Overlay:
         except (OSError, ValueError):
             self.guide = None
         self.mapimg = mapimg.load()          # isteğe bağlı arka plan; yoksa None
+        self.labels = entities.Labels()      # kullanıcının canavar/NPC kimlik etiketleri
         self._inside = None
         self.apply_land_filter()
         root.title("A2 Radar")
@@ -102,6 +104,9 @@ class Overlay:
     def tick(self):
         if self.s.calib_until and not self.s.calibrating:
             self._calib_done()
+        if not self.root.winfo_viewable():       # gizliyken (Hub içinde) çizme: yakalama iş parçacığına CPU kalsın
+            self.root.after(250, self.tick)
+            return
         snap = self.s.snapshot()
         c, k = self.c, self.k
         c.delete("all")
@@ -110,9 +115,11 @@ class Overlay:
         c.create_text((W - 14) * k, 13 * k, fill=DIM, font=("Segoe UI", int(11 * k)), text="✕")
 
         if self.s.calibrating:
-            c.create_rectangle(0, 24 * k, W * k, 46 * k, fill="#f59e0b", outline="")
+            base = self.s.calib_phase == "base"
+            left = (self.s.calib_base_until if base else self.s.calib_until) - time.time()
+            c.create_rectangle(0, 24 * k, W * k, 46 * k, fill="#38bdf8" if base else "#f59e0b", outline="")
             c.create_text(W / 2 * k, 35 * k, fill="#000", font=("Segoe UI", int(10 * k), "bold"),
-                          text=f"ZIPLA / DASH / KANAT!  {self.s.calib_until - time.time():.0f} sn")
+                          text=(f"DUR, HAREKET ETME  {left:.0f} sn" if base else f"ZIPLA / DASH / KANAT!  {left:.0f} sn"))
         elif time.time() < self.msg_until:
             h = 22 if self.msg_ok else 64                  # hata mesajları uzun: bant yüksek, metin sarılı
             c.create_rectangle(0, 24 * k, W * k, (24 + h) * k, fill="#16a34a" if self.msg_ok else "#b91c1c", outline="")
@@ -255,7 +262,7 @@ class SettingsDialog(tk.Toplevel):
         e = ttk.Entry(f, textvariable=self.name)
         e.grid(row=r + 3, columnspan=2, sticky="we")
         e.bind("<KeyRelease>", lambda _: self._name())
-        ttk.Button(f, text="Karakterimi bul (6 sn zıpla/dash/kanat)", command=self._calib).grid(row=r + 4, columnspan=2, sticky="we", pady=3)
+        ttk.Button(f, text="Karakterimi bul (3 sn dur, 6 sn zıpla)", command=self._calib).grid(row=r + 4, columnspan=2, sticky="we", pady=3)
         self.route = tk.BooleanVar(value=cfg["route_on"])
         ttk.Checkbutton(f, text="Arama rotası (küp yokken sonraki durağa yönlendir)", variable=self.route,
                         command=lambda: cfg.update(route_on=self.route.get())).grid(row=r + 5, columnspan=2, sticky="w", pady=(6, 0))
@@ -268,7 +275,8 @@ class SettingsDialog(tk.Toplevel):
                         ).grid(row=r + 7, columnspan=2, sticky="w")
         ttk.Button(f, text="Harita kalibrasyonu…", command=lambda: CalibDialog(ov)).grid(row=r + 8, columnspan=2, sticky="we", pady=3)
         ttk.Button(f, text="Rota haritası…", command=lambda: RouteWindow(ov)).grid(row=r + 9, columnspan=2, sticky="we")
-        ttk.Button(f, text="Kapat", command=self.destroy).grid(row=r + 10, columnspan=2, pady=(8, 0))
+        ttk.Button(f, text="Varlıklar (canavar/NPC kimlikleri)…", command=lambda: EntitiesWindow(ov)).grid(row=r + 10, columnspan=2, sticky="we", pady=3)
+        ttk.Button(f, text="Kapat", command=self.destroy).grid(row=r + 11, columnspan=2, pady=(8, 0))
 
     def _live(self, key):
         cfg = self.ov.cfg
@@ -392,6 +400,10 @@ class RouteWindow(tk.Toplevel):
         self.c = tk.Canvas(self, width=self.SIZE, height=self.SIZE, bg="#0e0d14", highlightthickness=0)
         self.c.pack()
         self.c.bind("<ButtonPress-1>", self._click)
+        self.c.bind("<Motion>", self._motion)
+        self.coord = ttk.Label(self, foreground="#444", font=("Consolas", 9))
+        self.coord.pack(anchor="w", padx=6, before=self.c)      # haritanın üstünde
+        self._cursor_txt = ""
         bar = ttk.Frame(self, padding=(6, 4))
         bar.pack(fill="x")
         ttk.Label(bar, text="Yer:").pack(side="left")
@@ -438,6 +450,21 @@ class RouteWindow(tk.Toplevel):
             self.note.config(text=f"'{name}' kaydedildi · {len(g.anchors)} yer · {q}", foreground="#16a34a")
         else:
             self.note.config(text=f"'{name}' kaydedildi · {len(g.anchors)}/3 yer", foreground="#16a34a")
+
+    def _motion(self, e):
+        """İmlecin altındaki noktanın oyun dünyası koordinatı (X, Y metre)."""
+        g = self.g
+        if g and g.ready:
+            gx, gy = g.to_game(e.x / self.k, e.y / self.k)
+            self._cursor_txt = f"İmleç: X {gx / 100:.0f}  Y {gy / 100:.0f} m"
+        else:
+            self._cursor_txt = f"İmleç: harita {e.x / self.k:.0f}, {e.y / self.k:.0f} (kalibrasyon yok)"
+        self._coords()
+
+    def _coords(self):
+        snap = self.ov.s.snapshot()
+        me = f"Oyuncu: X {snap.pos[0] / 100:.0f}  Y {snap.pos[1] / 100:.0f}  Z {snap.pos[2] / 100:.0f} m" if snap.pos else "Oyuncu: konum yok"
+        self.coord.config(text=(self._cursor_txt + "    " if self._cursor_txt else "") + me)
 
     def _reset(self):
         if self.g:
@@ -512,6 +539,7 @@ class RouteWindow(tk.Toplevel):
                             f" · en büyük {max(fs):.0f} m")
         else:
             self.aoi.config(text="Henüz küp ilk görülme ölçümü yok (küp çıkınca burada görünür).")
+        self._coords()
         self.after(500, self._draw)
 
 

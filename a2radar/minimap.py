@@ -42,6 +42,9 @@ class MiniMap:
         cfg["map_m"] = round(max(ZOOM_MIN, min(ZOOM_MAX, cfg["map_m"] * f)))
 
     def tick(self):
+        if not self.ov.root.winfo_viewable():
+            self.ov.root.after(400, self.tick)
+            return
         want = self.wanted()
         if want and not self.shown:
             self.canvas.pack()

@@ -34,6 +34,7 @@ class Capture(threading.Thread):
         super().__init__(daemon=True, name="capture")
         self.state, self.on_error = state, on_error
         self.stop_event = threading.Event()
+        self.decoder = None          # tanı: etkin Decoder (akış durumları)
 
     def stop(self):
         self.stop_event.set()
@@ -53,14 +54,28 @@ class Capture(threading.Thread):
                     port = cur
                     if port is not None:
                         dec = Decoder(self.state, port)
+                        self.decoder = dec
 
                         def on_pkt(pkt, dec=dec):
-                            if IP in pkt and TCP in pkt and Raw in pkt:
-                                ip, tcp = pkt[IP], pkt[TCP]
-                                dec.feed(ip.src, tcp.sport, ip.dst, tcp.dport, tcp.seq, bytes(pkt[Raw].load))
+                            # istisna sniffer iş parçacığını öldürür: hiçbir hata buradan çıkmamalı
+                            try:
+                                if IP in pkt and TCP in pkt and Raw in pkt:
+                                    ip, tcp = pkt[IP], pkt[TCP]
+                                    dec.feed(ip.src, tcp.sport, ip.dst, tcp.dport, tcp.seq, bytes(pkt[Raw].load))
+                            except Exception as exc:
+                                self.state.diag["feed_error"] += 1
+                                self.state.last_decode_error = f"{type(exc).__name__}: {exc}"
 
                         sniffer = AsyncSniffer(filter=f"tcp src port {port}", prn=on_pkt, store=False)
                         sniffer.start()
+                if sniffer is not None and not getattr(sniffer, "running", True):
+                    # sniffer iş parçacığı öldü (ör. Npcap hatası): aynı portla yeniden kur
+                    self.state.diag["sniffer_restart"] += 1
+                    try:
+                        sniffer.stop()
+                    except Exception:
+                        pass
+                    sniffer, port = None, None
                 if self.stop_event.wait(2.0):
                     break
         except Exception as exc:  # Npcap yok, yetki yok vb.

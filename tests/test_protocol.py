@@ -187,6 +187,90 @@ class CalibrationTests(unittest.TestCase):
         self.assertIsNone(eid)
         self.assertIn("10 cm", msg)
 
+    # --- bekleme fazı ve ad ile ayırma ---
+    def _two_phase(self, base, active, **kw):
+        s = State()
+        s.start_calibration(60, baseline=30)
+        for eid, zs in base.items():
+            for z in zs:
+                s.sample(eid, z, now=s.calib_start + 1)
+        for eid, zs in active.items():
+            for z in zs:
+                s.sample(eid, z, now=s.calib_start + 40)
+        for k, v in kw.items():
+            setattr(s, k, v)
+        return s
+
+    def test_busy_neighbour_during_baseline_is_excluded(self):
+        # A: kullanıcı dururken de zıplıyor (başkası). B: yalnızca zıplama fazında hareket etti (kullanıcı).
+        s = self._two_phase({111: [0, 150, 0]}, {111: [0, 160, 0], 222: [0, 140, 0]})
+        eid, msg = s.finish_calibration()
+        self.assertEqual(eid, 222, msg)
+        self.assertIn("elendi", msg)
+
+    def test_without_baseline_same_data_is_ambiguous(self):
+        s = State()
+        s.start_calibration(60)                                  # bekleme yok: eski davranış
+        for z in (0, 160, 0):
+            s.sample(111, z)
+        for z in (0, 140, 0):
+            s.sample(222, z)
+        eid, msg = s.finish_calibration()
+        self.assertIsNone(eid)
+        self.assertIn("belirsiz", msg)
+        self.assertIn("karakter adını", msg)
+
+    def test_everyone_busy_falls_back_to_plain_rule(self):
+        s = self._two_phase({111: [0, 150, 0], 222: [0, 100, 0]}, {111: [0, 300, 0], 222: [0, 40, 0]})
+        eid, msg = s.finish_calibration()
+        self.assertEqual(eid, 111, msg)                          # herkes hareketliydi: eleme iptal, en belirgin kazanır
+
+    def test_character_name_breaks_a_tie(self):
+        s = self._two_phase({}, {111: [0, 160, 0], 222: [0, 150, 0]})
+        s.name_eids = {222}
+        eid, msg = s.finish_calibration()
+        self.assertEqual(eid, 222, msg)
+        self.assertIn("adıyla", msg)
+
+    def test_name_in_both_candidates_stays_ambiguous(self):
+        s = self._two_phase({}, {111: [0, 160, 0], 222: [0, 150, 0]})
+        s.name_eids = {111, 222}
+        self.assertIsNone(s.finish_calibration()[0])
+
+    def test_phase_property(self):
+        s = State()
+        self.assertIsNone(s.calib_phase)
+        s.start_calibration()
+        self.assertEqual(s.calib_phase, "base")                  # varsayılan akış: önce dur
+        s.start_calibration(60)
+        self.assertEqual(s.calib_phase, "jump")                  # açık süre verilince bekleme yok
+
+    def test_name_packets_are_recorded_but_do_not_bind_during_calibration(self):
+        s = State()
+        s.char_name = "Tester"
+        d = Decoder(s, 13328)
+        s.start_calibration(60)
+        body = varint(777) + b"\x00" * 6 + "Tester".encode("utf-16le")
+        d.feed("1.1.1.1", 13328, "2.2.2.2", 5, 1, frame(20000, body))
+        self.assertIn(777, s.name_eids)
+        self.assertIsNone(s.player_id)                           # kalibrasyon sırasında ada göre bağlanmaz
+        s.finish_calibration()
+        d.feed("1.1.1.1", 13328, "2.2.2.2", 5, 1 + len(frame(20000, body)), frame(20000, body))
+        self.assertIsNone(s.player_id)                           # rastgele pakette ad geçmesi artık kimlik bağlamaz
+
+    def test_player_spawn_with_name_binds(self):
+        s = State()
+        s.char_name = "tester"                                   # büyük/küçük harf duyarsız
+        d = Decoder(s)
+        pkt = bytes.fromhex("e287011f000106546573746572ca902c00400240550dc8000096c20036c9468e5ca943dff00189708970b4120000b412")
+        d.packet(13889, pkt)
+        self.assertEqual(s.player_names[17378], "Tester")
+        self.assertEqual(s.player_id, 17378)
+        s2 = State()
+        s2.char_name = "Baskasi"
+        Decoder(s2).packet(13889, pkt)
+        self.assertIsNone(s2.player_id)
+
     def test_no_autobind(self):
         s = State()
         d = Decoder(s, 13328)

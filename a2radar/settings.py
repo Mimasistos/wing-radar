@@ -7,7 +7,8 @@ from pathlib import Path
 DEFAULTS = {"alpha": 0.9, "scale": 1.0, "sound": True, "volume": 0.7,
             "profile": "Radar Ping", "char_name": "", "range_m": 150.0,
             "x": 40, "y": 40, "route_on": True, "scan_m": 100.0,
-            "minimap_on": True, "map_m": 300.0, "land_only": False}
+            "minimap_on": True, "map_m": 300.0, "land_only": False,
+            "hub_profile": "Varsayılan"}
 
 
 def path() -> Path:

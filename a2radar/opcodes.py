@@ -13,16 +13,21 @@ from pathlib import Path
 
 DEFAULTS = {
     # Oyuncunun kendi konumu (sadece bağlı entity için)
-    "self_pos_fixed": [{"op": [13893], "off": 25}, {"op": [14338], "off": 17}],
+    # 14338 çıkarıldı: konumu hedefin konumudur (saldırıda canavarınki), kendi konumum değil
+    "self_pos_fixed": [{"op": [13893], "off": 25}],
     "self_pos_tail": [{"op": [14378, 14379, 14380, 14340], "min_len": 30}],
-    "self_pos_n": [{"op": list(range(14096, 14161)), "off": 2}],
+    # sonraki kayıt öncekini ezer: 14107/14108'de konum n+1'de (ham taramadan, 2026-11-10); 14109 delta paketidir
+    "self_pos_n": [{"op": list(range(14096, 14161)), "off": 2},
+                   {"op": [14107, 14108, 14127], "off": 1}],
+    # Yalnızca kendi karakterime gelen paketler: ilk varint kendi kimliğim (iki ayrı oturumda doğrulandı)
+    "self_ops": [36096, 14342],
     # Kimlik + konum içeren paketler
     "self_info": {"op": 13857, "off": 16},
     "zone_enter": {"op": 13859, "off": 5},          # n + off
     "teleport": {"op": 22046, "off": 17},
     # Varlık oluşma / silinme
     "spawn": [{"op": 13876, "id_off": 2, "pos_off": 6},
-              {"op": 13889, "id_off": 5, "pos_off": 11}],
+              {"op": 13889, "id_off": 3, "pos_off": 9}],   # ham kayıtlardan (2026-11-10): npc u32 n+3, konum n+9
     "despawn": [13877, 13882, 13890],
     "cube_pickup_nearby": 36205,
     # Oyuncunun ilk hareket paketi: otomatik kimlik bağlama için

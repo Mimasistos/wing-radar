@@ -42,11 +42,11 @@ Depoyu indirdiysen (ZIP) `install.bat` dosyasına çift tıklaman yeterli; `Basl
 
 ## Arama rotası (Altgard)
 Küp paketi yokken radar, haritadaki ~1500 olası noktayı en az duraktan kapsayan bir rota çıkarır ve sonraki durağı gösterir.
-1. ⚙ → **Karakterimi bul** (4 sn zıpla). 2. ⚙ → **Harita kalibrasyonu**: bilinen 3+ yerin yanında zıplayıp "Buradayım".
+1. ⚙ → **Karakterimi bul** (3 sn dur, 6 sn zıpla). 2. ⚙ → **Harita kalibrasyonu**: bilinen 3+ yerin yanında zıplayıp "Buradayım".
 3. ⚙ → **Rota haritası**: noktalar, rota, oyuncu ve tarama yarıçapı. Yarıçap, küpün ilk görüldüğü mesafelerden ölçülür.
 Radarın altında yarı saydam **yol haritası paneli** (kuzey ↑) canlı çizilir: noktalar, rota, duraklar, tarama çemberi, canlı küpler.
 Fare tekerleği yakınlaştırır; ⚙'dan kapatılabilir. Sonraki durak ekran dışındaysa kenarda sarı ok + mesafe görünür.
-Durak, oyuncu yarıçap içine girip küp paketi gelmeyince elenir. Konum yalnızca zıplama/dash'te güncellenir; gezerken zıpla.
+Durak, oyuncu yarıçap içine girip küp paketi gelmeyince elenir. Konum yaklaşık saniyede bir gelir (ölçüm: dururken de, yürürken de); hızlı giderken güncellemeler arası ~15 m olabilir.
 Veri: `a2radar/data/altgard_cubes.json`, sitenin yakın çekim ekran görüntülerinden çıkarılmış ikon merkezleridir (`tools/extract_icons.py`, 9 yakın çekim + 1 tam harita; her biri harita görseline 0.90–0.97 skorla hizalandı). Doğruluk yaklaşık ±10–20 m. Hangilerinin aktif olduğu bilinmez, z yok. Sitenin ham `options.json` koordinatları sitenin çizdiği küp konumlarıyla örtüşmediği için kullanılmadı (`data/_old/`).
 
 ## Kalibrasyon yerleri
@@ -61,15 +61,36 @@ Pencere her yerin dönüşümden sapmasını gösterir; tek büyük sapma yanlı
 4. **İlerleme:** oyuncu bir durağın R'sine girip küp paketi gelmezse oradaki noktalar elenir; duraklar düşer.
 Dönüşüm varsayılanı: dünya(cm) = 200·(piksel−2048) (2 m/piksel). Kalibrasyon yoksa tahmini çalışır, 3+ yer kaydedince iyileşir.
 
+## Varlıklar (canavar/NPC kimlikleri)
+⚙ → **Varlıklar…** penceresi, radarın gördüğü tüm NPC/canavar spawn paketlerini npc kimliğine göre gruplar: adet, en yakın mesafe, yön (K=kuzey), yükseklik farkı.
+Bir satıra çift tıklayıp ne olduğunu yazarsan (ör. "Orman kurdu", tür: canavar) etiket `%APPDATA%\A2Radar\entities.json` dosyasına kaydedilir; aynı türün tüm örnekleri aynı kimliği taşır.
+Spawn şeması küp paketleriyle aynı varsayılır ve diğer NPC'ler için **doğrulanmadı**: pencere boş kalırsa ya da konumlar canavarlarla uyuşmazsa
+"Ham kaydı dışa aktar" (`%APPDATA%\A2Radar\spawn_samples.json`) dosyasını paylaş.
+Koordinatlar oyun dünyası koordinatıdır (X, Y, Z; metre). Rota haritasında imleç ve oyuncu koordinatı üstte gösterilir.
+
+## Hub (ortak arayüz)
+
+`py -m a2radar` (Baslat.bat) artık Hub'ı açar; eski yalnızca-radar görünümü için `py -m a2radar --radar`.
+
+1. **Karakteri bul:** önce 3 sn dur + 6 sn zıpla, ya da (isteğe bağlı) karakter adını yazıp "Ada göre bul". Karakter bulununca pencere 4 sekmeye dönüşür.
+2. **Ana Sayfa:** solda canavar, sağda kaynak spawn arama listeleri (yaz → süzülür, kaydır, çoklu seç); seçilenlerin spawn noktaları ortadaki haritada işaretlenir, oyuncu canlı takip edilir (sürükle: kaydır, tekerlek: yakınlaştır).
+3. **Combat:** can/mana/enerji, sınıf, savaş gücü, gear score; saldırı ve buff becerileri; farm alanları (merkez + yarıçap + canavarlar). Oyun değerleri paketten okunur: bir alanı ilk kez haritalamak için "Öğren…" ile ekrandaki sayıyı girip, değer değişince tekrar ararsın.
+4. **Kaynak Toplama:** toplanacak kaynaklar, haritada rota çizme (tıkla: durak ekle, sağ tık: sil), rotaları kaydet/kopyala/değiştir. "Asistan" sıradaki hedefi yön ve mesafeyle önerir.
+5. **Radar Ayarları:** varsayılan Hidden Cube radarı (yer paylaşımı, ses, tarama yarıçapı, harita kalibrasyonu).
+
+Spawn noktaları hazır gelmez, bölgede gezdikçe öğrenilir (`%APPDATA%\A2Radar\spawns.json`). Profiller `%APPDATA%\A2Radar\profiles\` altında.
+Hub oyuna **girdi göndermez**; beceri/alan/rota ayarları öneri ve uyarı içindir.
+
 ## Sorun giderme: "Zıplama algılanmadı"
 "Karakterimi bul" 6 sn boyunca yakındaki varlıkların konum paketlerini dinler ve yüksekliği (z) en çok değişen varlığı karakter sayar.
-- Kalabalıktan uzak dur; 6 sn boyunca sürekli zıpla, dash yap veya kanat aç (tek zıplama yetmeyebilir).
+- Önce **3 sn DUR** (hareket etme), sonra **6 sn sürekli zıpla**, dash yap veya kanat aç. Bekleme sırasında zıplayan/hareket eden varlıklar elenir, yani yakındaki başkaları karakter sanılmaz.
+- "N oyuncu zıpladı, belirsiz" çıkarsa ⚙'dan **karakter adını** gir ve tekrar dene: adın paketlerde geçtiği varlık ayırt edici olur. Sürerse sakin bir yere git ya da seninle zıplayan bir yoldaş/binek varsa onu geri çağır.
 - Hata mesajı sayıları gösterir (varlık sayısı, örnek sayısı, gelen paket, yükseklik cm). Gelen paket 0 ise radar oyunun trafiğini göremiyor demektir (Npcap kurulu mu, yönetici olarak mı açıldı, oyun bağlı mı?).
 - Tanı bilgisi `%APPDATA%\A2Radar\calibration.log` dosyasına yazılır (varlıklar, örnekler, en sık opcode'lar). Sorun sürerse bu dosyayı paylaş.
 
 ## Sınırlar
 Offset ve opcode değerleri v1'den alındı, canlı oyunda doğrulanmadı. Oyun güncellenirse bozulabilir.
-Konum sadece zıplama/dash/skill gibi eylemlerde güncellenir (v1 notu).
+Konum ~1 Hz düzenli gelir (kullanıcı ölçümü, 2026-11-10: dururken 1.0 Hz, yürürken 1.1 Hz, zıplarken 1.9 Hz). Eski 'yalnızca zıplamada' notu yanlıştı.
 
 ## Küp noktalarını yenilemek
 Sitede haritayı yakınlaştırıp (küp kategorisi açık) bölge bölge ekran görüntüsü al; tam harita görüntüsü de ekleyebilirsin. Sonra:
